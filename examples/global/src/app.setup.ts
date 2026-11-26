@@ -6,6 +6,7 @@ import { requestLogger } from './common/request.logger.ts';
 import { Logger } from './common/logger.ts';
 import * as collectionController from './modules/collections/collection.controller.ts';
 import * as payoutController from './modules/payout/payout.controller.ts';
+import * as webhookController from './modules/webhooks/webhook.controller.ts';
 
 const logger = new Logger('ExceptionHandler');
 
@@ -50,6 +51,10 @@ export const routes: { method: 'get' | 'post' | 'put' | 'delete'; path: string; 
     { method: 'post', path: '/global-payout/transfer', handler: payoutController.authorizeTransfer },
     { method: 'post', path: '/global-payout/exchange', handler: payoutController.authorizeExchange },
     { method: 'get', path: '/global-payout/transactions/:transactionId', handler: payoutController.getPayoutTransaction },
+
+    // webhooks
+    { method: 'post', path: WEBHOOK_PATH, handler: webhookController.handlePayoutWebhook },
+    { method: 'post', path: COLLECTION_CALLBACK_PATH, handler: webhookController.handleCollectionCallback },
 ];
 
 const v1Router = express.Router();
