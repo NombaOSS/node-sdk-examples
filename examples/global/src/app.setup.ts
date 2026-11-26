@@ -5,6 +5,7 @@ import { returnErrorResponse } from './common/interceptor.response.ts';
 import { requestLogger } from './common/request.logger.ts';
 import { Logger } from './common/logger.ts';
 import * as collectionController from './modules/collections/collection.controller.ts';
+import * as payoutController from './modules/payout/payout.controller.ts';
 
 const logger = new Logger('ExceptionHandler');
 
@@ -36,6 +37,19 @@ export const routes: { method: 'get' | 'post' | 'put' | 'delete'; path: string; 
     { method: 'get', path: '/global-collections/providers', handler: collectionController.listProviders },
     { method: 'post', path: '/global-collections/inflows', handler: collectionController.initiateInflow },
     { method: 'get', path: '/global-collections/transactions/:transactionId', handler: collectionController.getInflowTransaction },
+
+    // global payout
+    { method: 'get', path: '/global-payout/accounts', handler: payoutController.listAccounts },
+    { method: 'get', path: '/global-payout/accounts/:accountId', handler: payoutController.getAccount },
+    { method: 'get', path: '/global-payout/sandbox/accounts', handler: payoutController.listSandboxAccounts },
+    { method: 'get', path: '/global-payout/sandbox/accounts/:accountId', handler: payoutController.getSandboxAccount },
+    { method: 'get', path: '/global-payout/exchange-rates', handler: payoutController.exchangeRates },
+    { method: 'post', path: '/global-payout/convert', handler: payoutController.convert },
+    { method: 'get', path: '/global-payout/institution-providers', handler: payoutController.institutionProviders },
+    { method: 'get', path: '/global-payout/payment-methods', handler: payoutController.paymentMethods },
+    { method: 'post', path: '/global-payout/transfer', handler: payoutController.authorizeTransfer },
+    { method: 'post', path: '/global-payout/exchange', handler: payoutController.authorizeExchange },
+    { method: 'get', path: '/global-payout/transactions/:transactionId', handler: payoutController.getPayoutTransaction },
 ];
 
 const v1Router = express.Router();
