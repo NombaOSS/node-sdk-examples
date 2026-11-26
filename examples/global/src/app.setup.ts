@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { returnErrorResponse } from './common/interceptor.response.ts';
 import { requestLogger } from './common/request.logger.ts';
 import { Logger } from './common/logger.ts';
+import * as collectionController from './modules/collections/collection.controller.ts';
 
 const logger = new Logger('ExceptionHandler');
 
@@ -30,7 +31,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes go here. Kept as a plain list (not introspected from the router) so we can both
 // register them and log them at boot from the same source of truth.
-export const routes: { method: 'get' | 'post' | 'put' | 'delete'; path: string; handler: RequestHandler | RequestHandler[] }[] = [];
+export const routes: { method: 'get' | 'post' | 'put' | 'delete'; path: string; handler: RequestHandler | RequestHandler[] }[] = [
+    // global collections
+    { method: 'get', path: '/global-collections/providers', handler: collectionController.listProviders },
+    { method: 'post', path: '/global-collections/inflows', handler: collectionController.initiateInflow },
+    { method: 'get', path: '/global-collections/transactions/:transactionId', handler: collectionController.getInflowTransaction },
+];
 
 const v1Router = express.Router();
 for (const route of routes) {
