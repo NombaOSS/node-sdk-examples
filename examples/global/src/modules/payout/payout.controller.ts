@@ -52,7 +52,8 @@ export const convert = [
 ];
 
 const institutionProvidersRequestSchema = z.object({
-    isMobileMoney: z.coerce.boolean().optional(),
+    // z.coerce.boolean() would read "false" as truthy (Boolean("false") === true) - an enum avoids that.
+    isMobileMoney: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
     countryIsoCode: z.string().optional(),
 });
 

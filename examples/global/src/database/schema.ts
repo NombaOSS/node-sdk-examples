@@ -25,13 +25,15 @@ export const inflows = sqliteTable('inflows', {
 // `reference` is the idempotencyKey chosen by the caller for authorizeTransfer/authorizeExchange;
 // `transactionId` is Nomba's own wtTransactionId, filled in once known (absent on a pending result,
 // same caveat as BankTransferResult in examples/webhooks). `type` distinguishes a transfer row from
-// an exchange row in this one shared table.
+// an exchange row in this one shared table. `status` is always one of the SDK's own PayoutStatus
+// values (PROCESSING/COMPLETED/FAILED/PENDING), plus REFUNDED for a payout_refund webhook - every
+// write path (hooks, getPayoutTransaction, the webhook) uses this one vocabulary.
 export const payouts = sqliteTable('payouts', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     reference: text('reference').notNull().unique(),
     transactionId: text('transaction_id'),
     type: text('type').notNull(),
-    status: text('status').notNull().default('pending'),
+    status: text('status').notNull().default('PENDING'),
     amount: integer('amount'),
     sourceCurrency: text('source_currency'),
     destinationCurrency: text('destination_currency'),

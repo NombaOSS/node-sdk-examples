@@ -49,12 +49,14 @@ export const onPendingHook = (type: 'transfer' | 'exchange', params: PayoutParam
     logger.log(`pending, requery later - ref: ${info.idempotencyKey} status: ${info.status}`);
     // info.data?.wtTransactionId may be absent here, same caveat as BankTransferResult in
     // examples/webhooks — captured anyway in case it's present, so a later lookup can match by it too.
-    await upsertPayout(type, params, { transactionId: info.data?.wtTransactionId, status: 'pending', responsePayload: info.data });
+    // Uppercase to match the SDK's own PayoutStatus values (result.status in onSuccessHook/
+    // getPayoutTransaction) - a consistent status vocabulary across every write path.
+    await upsertPayout(type, params, { transactionId: info.data?.wtTransactionId, status: 'PENDING', responsePayload: info.data });
     return info.data;
 };
 
 export const onFailedHook = (type: 'transfer' | 'exchange', params: PayoutParams) => async (info: FailedInfo<PayoutResult>) => {
     logger.warn(`failed ${info.code} - ${info.error.message}`);
-    await upsertPayout(type, params, { status: 'failed', responsePayload: { code: info.code, message: info.error.message } });
+    await upsertPayout(type, params, { status: 'FAILED', responsePayload: { code: info.code, message: info.error.message } });
     return undefined;
 };

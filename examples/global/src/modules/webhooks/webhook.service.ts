@@ -2,7 +2,8 @@ import { type WebhookEvent } from "@nomba/node-sdk";
 import { eq, sql } from "drizzle-orm";
 import { Logger } from "../../common/logger.ts";
 import { db } from "../../database/client.ts";
-import { inflows, payouts, webhookDeliveries } from "../../database/schema.ts";
+import { payouts, webhookDeliveries } from "../../database/schema.ts";
+import { getInflowTransaction } from "../collections/collection.service.ts";
 
 const logger = new Logger('WebhookService');
 
@@ -49,11 +50,11 @@ export const handleWebhookEvent = async (event: WebhookEvent) => {
     switch (event.event_type) {
         case 'payout_success':
             logger.log(`${event.event_type} - ${event.data?.transaction?.transactionId}`);
-            await upsertFromPayoutWebhook(event, 'success');
+            await upsertFromPayoutWebhook(event, 'COMPLETED');
             break;
         case 'payout_refund':
             logger.log(`${event.event_type} - ${event.data?.transaction?.transactionId}`);
-            await upsertFromPayoutWebhook(event, 'refunded');
+            await upsertFromPayoutWebhook(event, 'REFUNDED');
             break;
         default:
             logger.log(`unhandled event_type: ${event.event_type}`);
@@ -61,9 +62,11 @@ export const handleWebhookEvent = async (event: WebhookEvent) => {
 }
 
 // The SDK documents no signature scheme for initiateInflow's per-call callbackUrl (unlike the
-// nomba-signature/nomba-timestamp headers on the shared webhook subscription), and its payload
-// shape isn't typed anywhere in @nomba/node-sdk — this is best-effort, not type-checked against
-// an SDK type. Parse failures and unrecognized shapes are logged and swallowed, not thrown.
+// nomba-signature/nomba-timestamp headers on the shared webhook subscription), so this body is
+// untrusted — anyone who can reach this route and knows/guesses a transactionReference could
+// otherwise flip that inflow's status with one POST. The callback is therefore used only as a
+// trigger: the reference is pulled out of it, but the status/payload actually stored comes from
+// requerying Nomba directly (getInflowTransaction, an authenticated call), never from this body.
 export const handleCollectionCallback = async (rawBody: string) => {
     let payload: Record<string, unknown>;
     try {
@@ -74,14 +77,10 @@ export const handleCollectionCallback = async (rawBody: string) => {
     }
 
     const reference = (payload.transactionReference ?? payload.transactionId) as string | undefined;
-    const status = payload.status as string | undefined;
     if (!reference) {
         logger.log(`collection callback had no transactionReference/transactionId: ${rawBody}`);
         return;
     }
 
-    await db
-        .update(inflows)
-        .set({ status: status ?? 'unknown', responsePayload: rawBody, updatedAt: sql`(current_timestamp)` })
-        .where(eq(inflows.reference, reference));
+    await getInflowTransaction(reference);
 }

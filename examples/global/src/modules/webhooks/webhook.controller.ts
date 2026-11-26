@@ -49,9 +49,10 @@ export const handleCollectionCallback = async (req: Request, res: Response) => {
 
     logger.log(`collection callback payload: ${bodyText}`);
 
-    // signatureValid: true is a stand-in for "nothing to verify", not an actual check — see the
-    // comment above and in webhook.service.ts's handleCollectionCallback.
-    const deliveryId = await logDelivery(undefined, bodyText, true);
+    // signatureValid: false here means exactly that — nothing about this request was verified,
+    // so the audit column stays honest. webhook.service.ts's handleCollectionCallback never trusts
+    // this body for the actual status; it only pulls a reference out of it to requery.
+    const deliveryId = await logDelivery(undefined, bodyText, false);
 
     try {
         await processCollectionCallback(bodyText);

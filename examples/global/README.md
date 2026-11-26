@@ -149,8 +149,10 @@ under `src/database/`:
   `payouts`, keyed by `idempotencyKey` since a pending result's
   `wtTransactionId` may not be known yet (same caveat as `BankTransferResult`
   in `examples/webhooks`).
-- `getPayoutTransaction` refreshes the matching `payouts` row by
-  `transactionId`.
+- `getPayoutTransaction` refreshes the matching `payouts` row — matched by
+  the result's own `idempotencyKey` when present (so a row still missing
+  `transactionId`, from a pending outcome, gets found and backfilled), falling
+  back to matching on `transactionId` otherwise.
 - `handleWebhookEvent` updates a `payouts` row by `transactionId` when a
   `payout_success`/`payout_refund` webhook arrives. Unlike `examples/webhooks`'
   transfer webhooks, a payout webhook carries no merchant-chosen reference to
@@ -158,9 +160,11 @@ under `src/database/`:
   recorded in `webhook_deliveries`) but not inserted as a new row — this is a
   documented limitation, not a bug, matching the same caveat already called
   out for `examples/payments`' checkout-order correlation.
-- The collection-callback handler does a best-effort update of the matching
-  `inflows` row by `transactionReference`/`transactionId` — see
-  [Webhooks](#webhooks) below for why this one is "best-effort."
+- The collection-callback handler pulls a `transactionReference`/
+  `transactionId` out of the callback body best-effort, but never trusts that
+  body for the actual status — it requeries Nomba directly
+  (`getInflowTransaction`) and persists that authenticated result instead. See
+  [Webhooks](#webhooks) below for why.
 
 **Every webhook/callback delivery is also logged**, independent of whether it
 matched a payout or inflow row: `handlePayoutWebhook`/`handleCollectionCallback`
@@ -431,13 +435,19 @@ Global Payout notify you differently:
   An invalid signature gets a `401` and the event is never processed.
 - **`POST /v1/webhooks/global-collections`** — the URL you pass as
   `callbackUrl` on each `initiateInflow` call. The SDK documents no signature
-  scheme for this callback, and its payload shape isn't typed anywhere in
-  `@nomba/node-sdk`, so this route does **not** verify a signature and parses
-  the body best-effort (a parse failure or unrecognized shape is logged and
-  swallowed, not thrown) — see the comments in
-  [`webhook.service.ts`](src/modules/webhooks/webhook.service.ts). Treat this
-  as a convenience for local testing, not a production-hardened integration
-  point, until Nomba documents the scheme.
+  scheme for this callback, so its body is treated as untrusted: a parse
+  failure or unrecognized shape is logged and swallowed, not thrown, and —
+  importantly — the body's own `status` field is **never** written to the
+  database. Only a `transactionReference`/`transactionId` is read out of it,
+  which is then used to requery Nomba directly
+  (`nomba.globalCollections.getTransaction`, the same authenticated call
+  `GET /v1/global-collections/transactions/:transactionId` uses) and persist
+  *that* result instead. Without this, anyone who could reach this route and
+  guessed a `transactionReference` could flip that inflow's status with a
+  single unauthenticated POST — see the comments in
+  [`webhook.service.ts`](src/modules/webhooks/webhook.service.ts).
+  `webhook_deliveries.signature_valid` is recorded as `false` for every
+  delivery on this route, since nothing about it is actually verified.
 
 **Important:** both routes need the *raw* request body to be consistent with
 how `/v1/webhooks/nomba` must receive it (bytes exactly as Nomba signed

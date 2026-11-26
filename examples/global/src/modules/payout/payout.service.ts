@@ -63,11 +63,16 @@ export const authorizeExchange = async (params: AuthorizeExchangeParams) => {
 export const getPayoutTransaction = async (transactionId: string) => {
     const result = await nomba.globalPayout.getTransaction(transactionId);
 
-    // Refresh our local copy with whatever Nomba says now, if we have a row for it.
+    // A row created by onPendingHook may still have no transactionId (PayoutResult.wtTransactionId
+    // can be absent while pending) - match on the idempotencyKey this query result carries instead,
+    // when present, so that row gets found and backfilled with transactionId here. Falls back to
+    // matching on transactionId itself otherwise.
+    const matchOn = result.idempotencyKey ? eq(payouts.reference, result.idempotencyKey) : eq(payouts.transactionId, transactionId);
+
     await db
         .update(payouts)
-        .set({ status: result.status, responsePayload: JSON.stringify(result), updatedAt: sql`(current_timestamp)` })
-        .where(eq(payouts.transactionId, transactionId));
+        .set({ transactionId, status: result.status, responsePayload: JSON.stringify(result), updatedAt: sql`(current_timestamp)` })
+        .where(matchOn);
 
     return result;
 }
