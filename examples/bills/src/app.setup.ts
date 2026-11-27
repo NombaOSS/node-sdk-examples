@@ -11,10 +11,22 @@ const logger = new Logger('ExceptionHandler');
 
 const API_PREFIX = '/v1';
 const WEBHOOK_PATH = '/webhooks/nomba';
+const ALLOWED_ORIGINS = ['https://app.example.com', 'https://admin.example.com'];
 
 const app: Application = express();
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        // Allow non-browser or same-origin requests with no Origin header
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('CORS origin not allowed'));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
