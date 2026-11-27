@@ -14,11 +14,28 @@ const RESET = '\x1b[39m';
 const BOLD = '\x1b[1m\x1b[39m';
 const CONTEXT_COLOR = '\x1b[33m'; // yellow
 
+const sanitizeForLog = (value: unknown): string => {
+    const text = typeof value === 'string'
+        ? value
+        : (() => {
+            try {
+                return JSON.stringify(value);
+            } catch {
+                return String(value);
+            }
+        })();
+
+    // Prevent log forging/splitting and terminal control char abuse.
+    return text.replace(/[\r\n]+/g, ' ').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+};
+
 const write = (level: LogLevel, message: unknown, context?: string) => {
     const stream = level === 'error' ? console.error : console.log;
     const label = `${LEVEL_COLOR[level]}${level.toUpperCase().padStart(7)}${RESET}`;
-    const ctx = context ? `${CONTEXT_COLOR}[${context}]${RESET} ` : '';
-    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${message}`);
+    const safeContext = context ? sanitizeForLog(context) : '';
+    const safeMessage = sanitizeForLog(message);
+    const ctx = safeContext ? `${CONTEXT_COLOR}[${safeContext}]${RESET} ` : '';
+    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);
 };
 
 export class Logger {
@@ -34,7 +51,7 @@ export class Logger {
 
     error(message: unknown, trace?: string, context: string | undefined = this.context) {
         write('error', message, context);
-        if (trace) console.error(trace);
+        if (trace) console.error(sanitizeForLog(trace));
     }
 
     warn(message: unknown, context: string | undefined = this.context) {
