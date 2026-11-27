@@ -16,8 +16,18 @@ const API_PREFIX = '/v1';
 const WEBHOOK_PATH = '/webhooks/nomba';
 
 const app: Application = express();
+const allowedOrigins = new Set([
+    'https://allowed1.com',
+    'https://allowed2.com',
+]);
+
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        if (origin && allowedOrigins.has(origin)) {
+            return callback(null, true);
+        }
+        return callback(null, false);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
