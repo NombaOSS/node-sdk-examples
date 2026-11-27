@@ -14,6 +14,13 @@ const RESET = '\x1b[39m';
 const BOLD = '\x1b[1m\x1b[39m';
 const CONTEXT_COLOR = '\x1b[33m'; // yellow
 
+const sanitizeForSingleLineLog = (text: string): string =>
+    text
+        // Prevent log forging/splitting in line-oriented logs.
+        .replace(/\r?\n|\r/g, ' ')
+        // Remove other non-printable control chars (keep tab for readability).
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
 const redactSensitiveContent = (value: unknown): string => {
     const text = typeof value === 'string' ? value : (() => {
         try {
@@ -24,7 +31,7 @@ const redactSensitiveContent = (value: unknown): string => {
     })();
 
     // Redact common secret-bearing key/value pairs in text/JSON-like logs.
-    return text
+    const redacted = text
         .replace(
             /((?:password|passwd|pwd|secret|token|api[_-]?key|authorization|client[_-]?secret)\s*[:=]\s*)(["'])?[^"',\s}]+(\2)?/gi,
             '$1[REDACTED]',
@@ -33,6 +40,8 @@ const redactSensitiveContent = (value: unknown): string => {
             /("(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|client[_-]?secret)"\s*:\s*)("(?:[^"\\]|\\.)*"|[^,\s}]+)/gi,
             '$1"[REDACTED]"',
         );
+
+    return sanitizeForSingleLineLog(redacted);
 };
 
 const write = (level: LogLevel, message: unknown, context?: string) => {
@@ -56,7 +65,7 @@ export class Logger {
 
     error(message: unknown, trace?: string, context: string | undefined = this.context) {
         write('error', message, context);
-        if (trace) console.error(trace);
+        if (trace) console.error(sanitizeForSingleLineLog(trace));
     }
 
     warn(message: unknown, context: string | undefined = this.context) {
