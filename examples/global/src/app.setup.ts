@@ -16,8 +16,18 @@ const WEBHOOK_PATH = '/webhooks/nomba';
 const COLLECTION_CALLBACK_PATH = '/webhooks/global-collections';
 
 const app: Application = express();
+const allowedOrigins = new Set<string>([
+    'https://allowed1.com',
+    'https://allowed2.com',
+]);
+
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        // Allow non-browser/server-to-server requests without Origin header
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error('CORS origin not allowed'));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
