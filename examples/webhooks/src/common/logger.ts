@@ -14,7 +14,7 @@ const RESET = '\x1b[39m';
 const BOLD = '\x1b[1m\x1b[39m';
 const CONTEXT_COLOR = '\x1b[33m'; // yellow
 
-const sanitizeForLog = (value: unknown): string => {
+export const sanitizeForLog = (value: unknown): string => {
     const text = typeof value === 'string'
         ? value
         : (() => {

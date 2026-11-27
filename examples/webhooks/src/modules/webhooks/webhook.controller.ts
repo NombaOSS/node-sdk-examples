@@ -6,7 +6,7 @@ import { verifyWebhook, type WebhookEvent } from '@nomba/node-sdk';
 import { NOMBA_WEBHOOK_SECRET } from '../../config/env.config.ts';
 import { validateRequest } from '../../common/validator.request.ts';
 import { returnSuccessResponse } from '../../common/interceptor.response.ts';
-import { Logger } from '../../common/logger.ts';
+import { Logger, sanitizeForLog } from '../../common/logger.ts';
 import { handleWebhookEvent, repushEvent, logDelivery, markDeliveryProcessed, markDeliveryFailed } from './webhook.service.ts';
 
 const logger = new Logger('Webhook');
@@ -24,7 +24,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
     const bodyText = rawBody.toString('utf-8');
 
     // Logged before verification too, so a rejected delivery still leaves a record of what was sent.
-    logger.log(`payload: ${bodyText}`);
+    logger.log(`payload: ${sanitizeForLog(bodyText)}`);
 
     const isValid = verifyWebhook(rawBody, signature, timestamp, NOMBA_WEBHOOK_SECRET);
     const event = isValid ? (JSON.parse(bodyText) as WebhookEvent) : undefined;

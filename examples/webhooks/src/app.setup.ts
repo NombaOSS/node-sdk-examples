@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { returnErrorResponse } from './common/interceptor.response.ts';
 import { requestLogger } from './common/request.logger.ts';
-import { Logger } from './common/logger.ts';
+import { Logger, sanitizeForLog } from './common/logger.ts';
 import * as transferController from './modules/transfer/transfer.controller.ts';
 import * as webhookController from './modules/webhooks/webhook.controller.ts';
 
@@ -70,7 +70,10 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err: Error, req: ExpressRequest, res: Response, next: NextFunction) => {
-    logger.error(`${req.method} ${req.url} - ${err.message}`, err.stack);
+    const method = sanitizeForLog(req.method);
+    const url = sanitizeForLog(req.url);
+    const message = sanitizeForLog(err.message);
+    logger.error(`${method} ${url} - ${message}`, err.stack);
     if (res.headersSent) {
         return next(err);
     }
