@@ -25,15 +25,15 @@ export const initiateTransfer = async (transferData: BankTransferParams) => {
 }
 
 // No list/requery-by-merchantTxRef shortcut exists on nomba.transfers, so this goes through
-// the requery service, keyed on the merchantTxRef the caller chose when initiating the transfer.
-export const getTransferDetails = async (transferId: string) => {
-    const result = await nomba.requery.requeryBySession(transferId);
+// the requery service, keyed on the sessionId returned with the transfer response.
+export const getTransferDetails = async (sessionId: string) => {
+    const result = await nomba.requery.requeryBySession(sessionId);
 
     // Refresh our local copy with whatever Nomba says now, if we have a row for it.
     await db
         .update(transfers)
         .set({ responsePayload: JSON.stringify(result), updatedAt: sql`(current_timestamp)` })
-        .where(eq(transfers.reference, transferId));
+        .where(eq(transfers.sessionId, sessionId));
 
     return result;
 }

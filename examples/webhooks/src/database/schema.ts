@@ -8,6 +8,7 @@ export const transfers = sqliteTable('transfers', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     reference: text('reference').notNull().unique(),
     transactionId: text('transaction_id'),
+    sessionId: text('session_id'),
     status: text('status').notNull().default('pending'),
     amount: integer('amount'),
     requestPayload: text('request_payload'),

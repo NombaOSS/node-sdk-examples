@@ -1,0 +1,1 @@
+ALTER TABLE `transfers` ADD `session_id` text;
