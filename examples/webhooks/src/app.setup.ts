@@ -11,10 +11,19 @@ const logger = new Logger('ExceptionHandler');
 
 const API_PREFIX = '/v1';
 const WEBHOOK_PATH = '/webhooks/nomba';
+const ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 const app: Application = express();
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        // Allow non-browser or same-origin requests that do not send Origin.
+        if (!origin) return callback(null, true);
+        if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
