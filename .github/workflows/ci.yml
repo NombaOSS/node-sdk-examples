@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci (${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install, lint, test and build each example
+        run: |
+          shopt -s nullglob
+          for manifest in */package.json; do
+            dir=$(dirname "$manifest")
+            echo "::group::$dir"
+            if [ ! -f "$dir/package-lock.json" ]; then
+              echo "::error file=$manifest::$dir has no package-lock.json. Commit one so installs are reproducible."
+              exit 1
+            fi
+            (cd "$dir" && npm ci --ignore-scripts && npm run lint --if-present && npm test --if-present && npm run build --if-present)
+            echo "::endgroup::"
+          done
