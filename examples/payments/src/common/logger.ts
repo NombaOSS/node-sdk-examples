@@ -3,6 +3,8 @@
 
 type LogLevel = 'log' | 'error' | 'warn' | 'debug' | 'verbose';
 
+const sanitizeForLog = (value: unknown): string => String(value).replace(/[\r\n\u2028\u2029]/g, '');
+
 const LEVEL_COLOR: Record<LogLevel, string> = {
     log: '\x1b[32m',     // green
     error: '\x1b[31m',   // red
@@ -17,8 +19,10 @@ const CONTEXT_COLOR = '\x1b[33m'; // yellow
 const write = (level: LogLevel, message: unknown, context?: string) => {
     const stream = level === 'error' ? console.error : console.log;
     const label = `${LEVEL_COLOR[level]}${level.toUpperCase().padStart(7)}${RESET}`;
-    const ctx = context ? `${CONTEXT_COLOR}[${context}]${RESET} ` : '';
-    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${message}`);
+    const safeContext = context ? sanitizeForLog(context) : '';
+    const safeMessage = sanitizeForLog(message);
+    const ctx = safeContext ? `${CONTEXT_COLOR}[${safeContext}]${RESET} ` : '';
+    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);
 };
 
 export class Logger {
@@ -34,7 +38,7 @@ export class Logger {
 
     error(message: unknown, trace?: string, context: string | undefined = this.context) {
         write('error', message, context);
-        if (trace) console.error(trace);
+        if (trace) console.error(sanitizeForLog(trace));
     }
 
     warn(message: unknown, context: string | undefined = this.context) {
