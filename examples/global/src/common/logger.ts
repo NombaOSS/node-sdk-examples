@@ -14,11 +14,30 @@ const RESET = '\x1b[39m';
 const BOLD = '\x1b[1m\x1b[39m';
 const CONTEXT_COLOR = '\x1b[33m'; // yellow
 
+const sanitizeLogMessage = (message: unknown): string => {
+    const raw = typeof message === 'string'
+        ? message
+        : (() => {
+            try {
+                return JSON.stringify(message);
+            } catch {
+                return String(message);
+            }
+        })();
+
+    // Redact common sensitive key/value patterns in plain text or JSON-like logs.
+    return raw.replace(
+        /\b(password|passwd|pwd|secret|token|api[-_]?key|client[-_]?secret|authorization)\b\s*([:=])\s*(['"]?)[^,'"\s}]+(\3)/gi,
+        '$1$2$3[REDACTED]$3',
+    );
+};
+
 const write = (level: LogLevel, message: unknown, context?: string) => {
     const stream = level === 'error' ? console.error : console.log;
     const label = `${LEVEL_COLOR[level]}${level.toUpperCase().padStart(7)}${RESET}`;
     const ctx = context ? `${CONTEXT_COLOR}[${context}]${RESET} ` : '';
-    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${message}`);
+    const safeMessage = sanitizeLogMessage(message);
+    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);
 };
 
 export class Logger {
