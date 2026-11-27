@@ -1,6 +1,6 @@
 ![example-apps](assets/banner.svg)
 
-# Example Apps
+# Nomba Node.js SDK examples
 
 Small, self-contained Express + TypeScript servers demonstrating the
 [`@nomba/node-sdk`](https://developer.nomba.com). Each example under
@@ -10,6 +10,10 @@ structure (controller → service layers, validated env config, a shared
 NestJS-style logger, `verifyWebhook`-based webhook handling,
 [drizzle-orm](https://orm.drizzle.team) + `node:sqlite` persistence) so that
 once you've read one, the others are immediately familiar.
+
+This repository holds **examples only**. The SDK itself lives at
+[NombaOSS/nomba-node-sdk](https://github.com/NombaOSS/nomba-node-sdk);
+report SDK bugs there.
 
 ## Examples
 
@@ -27,10 +31,16 @@ file-by-file explanation of the shared structure and a full request trace
 through every layer — worth reading first regardless of which example you're
 actually working from, since both follow it.
 
+Each example folder has: a `package.json` with a committed
+`package-lock.json`, a `README.md` explaining what it demonstrates and how
+to run it, and a `.env.example` listing the variables it needs with no real
+values. CI installs each example with `npm ci --ignore-scripts` on Node 22
+and 24, then runs its `lint`, `test` and `build` scripts if it defines them.
+
 ## Running an example
 
 ```bash
-cd examples/webhooks   # or examples/bills
+cd examples/webhooks   # or examples/bills, examples/payments, examples/global
 npm install
 cp .env.example .env   # fill in your Nomba sandbox credentials
 npm run dev
@@ -55,3 +65,20 @@ is domain-specific, since its tables mirror the new example's own resources.
 After writing it, run `npm install` then `npm run db:generate` once to
 produce the initial migration in `src/database/migrations/`, and check it
 into the repo.
+
+## Credentials
+
+Examples read Nomba credentials from environment variables. Use **sandbox**
+credentials from the Nomba dashboard, and never commit a `.env` file, real
+keys or account IDs. CI never has access to Nomba credentials.
+
+## Contributing
+
+See the [NombaOSS contributing guide](https://github.com/NombaOSS/.github/blob/main/CONTRIBUTING.md)
+and [security policy](https://github.com/NombaOSS/.github/blob/main/SECURITY.md).
+Pull requests need a passing CI run and a review from
+[@NombaOSS/maintainers](CODEOWNERS).
+
+## License
+
+[MIT](LICENSE)
