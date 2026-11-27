@@ -14,11 +14,16 @@ const RESET = '\x1b[39m';
 const BOLD = '\x1b[1m\x1b[39m';
 const CONTEXT_COLOR = '\x1b[33m'; // yellow
 
+const sanitizeForLog = (value: string): string => value.replace(/[\r\n]+/g, ' ').replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '');
+const stringifyForLog = (value: unknown): string => sanitizeForLog(typeof value === 'string' ? value : String(value));
+
 const sanitizeLogMessage = (message: unknown): string => {
     const raw = typeof message === 'string'
         ? message
-        : (() => {
-            try {
+    const safeMessage = stringifyForLog(message);
+    const safeContext = context ? sanitizeForLog(context) : undefined;
+    const ctx = safeContext ? `${CONTEXT_COLOR}[${safeContext}]${RESET} ` : '';
+    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);
                 return JSON.stringify(message);
             } catch {
                 return String(message);
@@ -34,7 +39,7 @@ const sanitizeLogMessage = (message: unknown): string => {
 
 const write = (level: LogLevel, message: unknown, context?: string) => {
     const stream = level === 'error' ? console.error : console.log;
-    const label = `${LEVEL_COLOR[level]}${level.toUpperCase().padStart(7)}${RESET}`;
+        if (trace) console.error(sanitizeForLog(trace));
     const ctx = context ? `${CONTEXT_COLOR}[${context}]${RESET} ` : '';
     const safeMessage = sanitizeLogMessage(message);
     stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);

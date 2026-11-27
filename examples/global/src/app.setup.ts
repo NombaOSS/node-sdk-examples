@@ -9,6 +9,7 @@ import * as payoutController from './modules/payout/payout.controller.ts';
 import * as webhookController from './modules/webhooks/webhook.controller.ts';
 
 const logger = new Logger('ExceptionHandler');
+const sanitizeForLog = (value: string): string => value.replace(/[\r\n]+/g, ' ').replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '');
 
 const API_PREFIX = '/v1';
 const WEBHOOK_PATH = '/webhooks/nomba';
@@ -80,7 +81,10 @@ app.use((req, res) => {
 app.use((err: Error, req: ExpressRequest, res: Response, next: NextFunction) => {
     logger.error(`${req.method} ${req.url} - ${err.message}`, err.stack);
     if (res.headersSent) {
-        return next(err);
+    const safeMethod = sanitizeForLog(req.method);
+    const safeUrl = sanitizeForLog(req.url);
+    const safeErrorMessage = sanitizeForLog(err.message);
+    logger.error(`${safeMethod} ${safeUrl} - ${safeErrorMessage}`, err.stack);
     }
     returnErrorResponse(res, err, req);
 });

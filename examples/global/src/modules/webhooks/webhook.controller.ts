@@ -8,6 +8,7 @@ import { Logger } from '../../common/logger.ts';
 import { handleWebhookEvent, handleCollectionCallback as processCollectionCallback, logDelivery, markDeliveryProcessed, markDeliveryFailed } from './webhook.service.ts';
 
 const logger = new Logger('Webhook');
+const sanitizeForLog = (value: string): string => value.replace(/[\r\n]+/g, ' ').replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '');
 
 // Mounted behind express.raw() in app.setup.ts, so req.body here is the raw Buffer
 // verifyWebhook needs — by the time express.json() would run, the body is already consumed.
@@ -18,7 +19,7 @@ export const handlePayoutWebhook = async (req: Request, res: Response) => {
     const bodyText = rawBody.toString('utf-8');
 
     // Logged before verification too, so a rejected delivery still leaves a record of what was sent.
-    logger.log(`payload: ${bodyText}`);
+    logger.log(`payload: ${sanitizeForLog(bodyText)}`);
 
     const isValid = verifyWebhook(rawBody, signature, timestamp, NOMBA_WEBHOOK_SECRET);
     const event = isValid ? (JSON.parse(bodyText) as WebhookEvent) : undefined;
@@ -47,7 +48,7 @@ export const handleCollectionCallback = async (req: Request, res: Response) => {
     const rawBody = req.body as Buffer;
     const bodyText = rawBody.toString('utf-8');
 
-    logger.log(`collection callback payload: ${bodyText}`);
+    logger.log(`collection callback payload: ${sanitizeForLog(bodyText)}`);
 
     // signatureValid: false here means exactly that — nothing about this request was verified,
     // so the audit column stays honest. webhook.service.ts's handleCollectionCallback never trusts
