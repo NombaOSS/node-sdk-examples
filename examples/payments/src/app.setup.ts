@@ -25,9 +25,7 @@ app.use(requestLogger);
 // Must run before express.json(): verifyWebhook needs the raw bytes, not a parsed object.
 app.use(`${API_PREFIX}${WEBHOOK_PATH}`, express.raw({ type: 'application/json' }));
 app.use(express.json());
-app.use(helmet({
-    contentSecurityPolicy: false,
-}));
+app.use(helmet());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes go here. Kept as a plain list (not introspected from the router) so we can both
