@@ -1,0 +1,82 @@
+// Minimal NestJS-style console logger: `[Nest] <pid>  - <timestamp>     LOG [Context] message`,
+// colored per level. No dependency — just ANSI escape codes.
+
+type LogLevel = 'log' | 'error' | 'warn' | 'debug' | 'verbose';
+
+const LEVEL_COLOR: Record<LogLevel, string> = {
+    log: '\x1b[32m',     // green
+    error: '\x1b[31m',   // red
+    warn: '\x1b[33m',    // yellow
+    debug: '\x1b[35m',   // magenta
+    verbose: '\x1b[36m', // cyan
+};
+const RESET = '\x1b[39m';
+const BOLD = '\x1b[1m\x1b[39m';
+const CONTEXT_COLOR = '\x1b[33m'; // yellow
+
+const sanitizeForSingleLineLog = (text: string): string =>
+    text
+        // Prevent log forging/splitting in line-oriented logs.
+        .replace(/\r?\n|\r/g, ' ')
+        // Remove other non-printable control chars (keep tab for readability).
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+const redactSensitiveContent = (value: unknown): string => {
+    const text = typeof value === 'string' ? value : (() => {
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return String(value);
+        }
+    })();
+
+    // Redact common secret-bearing key/value pairs in text/JSON-like logs.
+    const redacted = text
+        .replace(
+            /((?:password|passwd|pwd|secret|token|api[_-]?key|authorization|client[_-]?secret)\s*[:=]\s*)(["'])?[^"',\s}]+(\2)?/gi,
+            '$1[REDACTED]',
+        )
+        .replace(
+            /("(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|client[_-]?secret)"\s*:\s*)("(?:[^"\\]|\\.)*"|[^,\s}]+)/gi,
+            '$1"[REDACTED]"',
+        );
+
+    return sanitizeForSingleLineLog(redacted);
+};
+
+const write = (level: LogLevel, message: unknown, context?: string) => {
+    const stream = level === 'error' ? console.error : console.log;
+    const label = `${LEVEL_COLOR[level]}${level.toUpperCase().padStart(7)}${RESET}`;
+    const ctx = context ? `${CONTEXT_COLOR}[${context}]${RESET} ` : '';
+    const safeMessage = redactSensitiveContent(message);
+    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);
+};
+
+export class Logger {
+    private readonly context?: string;
+
+    constructor(context?: string) {
+        this.context = context;
+    }
+
+    log(message: unknown, context: string | undefined = this.context) {
+        write('log', message, context);
+    }
+
+    error(message: unknown, trace?: string, context: string | undefined = this.context) {
+        write('error', message, context);
+        if (trace) console.error(sanitizeForSingleLineLog(trace));
+    }
+
+    warn(message: unknown, context: string | undefined = this.context) {
+        write('warn', message, context);
+    }
+
+    debug(message: unknown, context: string | undefined = this.context) {
+        write('debug', message, context);
+    }
+
+    verbose(message: unknown, context: string | undefined = this.context) {
+        write('verbose', message, context);
+    }
+}

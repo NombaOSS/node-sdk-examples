@@ -4,4 +4,6 @@ dist/
 .env.*
 !.env.example
 *.log
+*.db
+*.db-journal
 .DS_Store

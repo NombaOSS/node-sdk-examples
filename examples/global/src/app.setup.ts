@@ -1,0 +1,103 @@
+import express, { type Application, type Request as ExpressRequest, type Response, type NextFunction, type RequestHandler } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { returnErrorResponse } from './common/interceptor.response.ts';
+import { requestLogger } from './common/request.logger.ts';
+import { Logger } from './common/logger.ts';
+import * as collectionController from './modules/collections/collection.controller.ts';
+import * as payoutController from './modules/payout/payout.controller.ts';
+import * as webhookController from './modules/webhooks/webhook.controller.ts';
+
+const logger = new Logger('ExceptionHandler');
+const sanitizeForLog = (value: string): string => value.replace(/[\r\n]+/g, ' ').replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '');
+
+const API_PREFIX = '/v1';
+const WEBHOOK_PATH = '/webhooks/nomba';
+const COLLECTION_CALLBACK_PATH = '/webhooks/global-collections';
+
+const app: Application = express();
+const allowedOrigins = new Set<string>([
+    'https://allowed1.com',
+    'https://allowed2.com',
+]);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow non-browser/server-to-server requests without Origin header
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error('CORS origin not allowed'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.use(requestLogger);
+// Must run before express.json(): verifyWebhook needs the raw bytes, not a parsed object.
+// Both webhook-ish routes are mounted raw, even though only WEBHOOK_PATH is signature-verified.
+app.use(`${API_PREFIX}${WEBHOOK_PATH}`, express.raw({ type: 'application/json' }));
+app.use(`${API_PREFIX}${COLLECTION_CALLBACK_PATH}`, express.raw({ type: 'application/json' }));
+app.use(express.json());
+app.use(helmet());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes go here. Kept as a plain list (not introspected from the router) so we can both
+// register them and log them at boot from the same source of truth.
+export const routes: { method: 'get' | 'post' | 'put' | 'delete'; path: string; handler: RequestHandler | RequestHandler[] }[] = [
+    // global collections
+    { method: 'get', path: '/global-collections/providers', handler: collectionController.listProviders },
+    { method: 'post', path: '/global-collections/inflows', handler: collectionController.initiateInflow },
+    { method: 'get', path: '/global-collections/transactions/:transactionId', handler: collectionController.getInflowTransaction },
+
+    // global payout
+    { method: 'get', path: '/global-payout/accounts', handler: payoutController.listAccounts },
+    { method: 'get', path: '/global-payout/accounts/:accountId', handler: payoutController.getAccount },
+    { method: 'get', path: '/global-payout/sandbox/accounts', handler: payoutController.listSandboxAccounts },
+    { method: 'get', path: '/global-payout/sandbox/accounts/:accountId', handler: payoutController.getSandboxAccount },
+    { method: 'get', path: '/global-payout/exchange-rates', handler: payoutController.exchangeRates },
+    { method: 'post', path: '/global-payout/convert', handler: payoutController.convert },
+    { method: 'get', path: '/global-payout/institution-providers', handler: payoutController.institutionProviders },
+    { method: 'get', path: '/global-payout/payment-methods', handler: payoutController.paymentMethods },
+    { method: 'post', path: '/global-payout/transfer', handler: payoutController.authorizeTransfer },
+    { method: 'post', path: '/global-payout/exchange', handler: payoutController.authorizeExchange },
+    { method: 'get', path: '/global-payout/transactions/:transactionId', handler: payoutController.getPayoutTransaction },
+
+    // webhooks
+    { method: 'post', path: WEBHOOK_PATH, handler: webhookController.handlePayoutWebhook },
+    { method: 'post', path: COLLECTION_CALLBACK_PATH, handler: webhookController.handleCollectionCallback },
+];
+
+const v1Router = express.Router();
+for (const route of routes) {
+    v1Router[route.method](route.path, ...[route.handler].flat());
+}
+app.use(API_PREFIX, v1Router);
+
+export const listRoutes = () => routes.map((route) => `${route.method.toUpperCase()} ${API_PREFIX}${route.path}`);
+
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
+
+// Fallback route
+app.use((req, res) => {
+    res.status(404).json({
+        statusCode: 404,
+        message: `Cannot ${req.method} ${req.url}`,
+        error: 'Not Found',
+    });
+});
+
+// Error handling middleware
+app.use((err: Error, req: ExpressRequest, res: Response, next: NextFunction) => {
+    logger.error(`${req.method} ${req.url} - ${err.message}`, err.stack);
+    if (res.headersSent) {
+    const safeMethod = sanitizeForLog(req.method);
+    const safeUrl = sanitizeForLog(req.url);
+    const safeErrorMessage = sanitizeForLog(err.message);
+    logger.error(`${safeMethod} ${safeUrl} - ${safeErrorMessage}`, err.stack);
+    }
+    returnErrorResponse(res, err, req);
+});
+
+export default app;
+export { API_PREFIX, WEBHOOK_PATH, COLLECTION_CALLBACK_PATH };
