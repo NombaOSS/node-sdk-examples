@@ -26,9 +26,7 @@ app.use(requestLogger);
 app.use(`${API_PREFIX}${WEBHOOK_PATH}`, express.raw({ type: 'application/json' }));
 app.use(`${API_PREFIX}${COLLECTION_CALLBACK_PATH}`, express.raw({ type: 'application/json' }));
 app.use(express.json());
-app.use(helmet({
-    contentSecurityPolicy: false,
-}));
+app.use(helmet());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes go here. Kept as a plain list (not introspected from the router) so we can both
