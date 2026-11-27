@@ -14,11 +14,33 @@ const RESET = '\x1b[39m';
 const BOLD = '\x1b[1m\x1b[39m';
 const CONTEXT_COLOR = '\x1b[33m'; // yellow
 
+const redactSensitiveContent = (value: unknown): string => {
+    const text = typeof value === 'string' ? value : (() => {
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return String(value);
+        }
+    })();
+
+    // Redact common secret-bearing key/value pairs in text/JSON-like logs.
+    return text
+        .replace(
+            /((?:password|passwd|pwd|secret|token|api[_-]?key|authorization|client[_-]?secret)\s*[:=]\s*)(["'])?[^"',\s}]+(\2)?/gi,
+            '$1[REDACTED]',
+        )
+        .replace(
+            /("(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|client[_-]?secret)"\s*:\s*)("(?:[^"\\]|\\.)*"|[^,\s}]+)/gi,
+            '$1"[REDACTED]"',
+        );
+};
+
 const write = (level: LogLevel, message: unknown, context?: string) => {
     const stream = level === 'error' ? console.error : console.log;
     const label = `${LEVEL_COLOR[level]}${level.toUpperCase().padStart(7)}${RESET}`;
     const ctx = context ? `${CONTEXT_COLOR}[${context}]${RESET} ` : '';
-    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${message}`);
+    const safeMessage = redactSensitiveContent(message);
+    stream(`${BOLD}[ExampleServer]${RESET} ${process.pid}  - ${new Date().toLocaleString()}     ${label} ${ctx}${safeMessage}`);
 };
 
 export class Logger {
